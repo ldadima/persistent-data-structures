@@ -63,13 +63,14 @@ public class PersistentBTree<K, V> implements PersistentTree<K, V> {
         while (curr != null) {
             BTreeNode.GetResult result = curr.getNextNodeByKey(key);
             if (result.isThisEntry()) {
-                result.entry.value = value;
+                curr.entries.remove(result.entry);
+                curr.entries.add(new BTreeEntry(key, value));
                 return new PersistentBTree<>(t, size, newHead, keyComparator);
             }
             if (curr.isLeaf()) {
                 curr.entries.add(new BTreeEntry(key, value));
             }
-            curr = getNextTreeNode(curr, path, result);
+            curr = getNextTreeNodeAndAddToPath(curr, path, result);
         }
         for (int i = path.size() - 1; i >= 0; i--) {
             PathEntry pathEntry = path.get(i);
@@ -102,17 +103,6 @@ public class PersistentBTree<K, V> implements PersistentTree<K, V> {
         return new PersistentBTree<>(t, size + 1, newHead, keyComparator);
     }
 
-    private BTreeNode getNextTreeNode(BTreeNode curr, List<PathEntry> path, BTreeNode.GetResult result) {
-        BTreeNode prev;
-        prev = curr;
-        curr = result.node == null ? null : new BTreeNode(result.node);
-        if (curr != null) {
-            prev.nodes.set(result.entryIndex, curr);
-            path.add(new PathEntry(curr, result.entryIndex));
-        }
-        return curr;
-    }
-
     // todo
     @Override
     public PersistentTree<K, V> remove(K key) {
@@ -120,7 +110,6 @@ public class PersistentBTree<K, V> implements PersistentTree<K, V> {
             return this;
         }
         BTreeNode newHead = new BTreeNode(head);
-        BTreeNode prev;
         BTreeNode curr = newHead;
         List<PathEntry> path = new ArrayList<>();
         path.add(new PathEntry(curr, 0));
@@ -133,8 +122,9 @@ public class PersistentBTree<K, V> implements PersistentTree<K, V> {
                 } else {
                     BTreeNode ancestor = curr;
                     curr = new BTreeNode(ancestor.nodes.get(result.entryIndex + 1));
-                    path.add(new PathEntry(curr, result.entryIndex));
+                    path.add(new PathEntry(curr, result.entryIndex + 1));
                     ancestor.nodes.set(result.entryIndex + 1, curr);
+                    BTreeNode prev;
                     while (!curr.isLeaf()) {
                         prev = curr;
                         curr = new BTreeNode(prev.nodes.get(0));
@@ -145,65 +135,61 @@ public class PersistentBTree<K, V> implements PersistentTree<K, V> {
                     BTreeEntry f = curr.entries.first();
                     ancestor.entries.add(f);
                     curr.entries.remove(f);
-                    break;
                 }
+                break;
             }
-            curr = getNextTreeNode(curr, path, result);
+            curr = getNextTreeNodeAndAddToPath(curr, path, result);
         }
 
         if (curr == null) {
             return this;
         }
 
-        BTreeNode currNode = path.get(path.size() - 1).node;
         for (int i = path.size() - 1; i > 0; i--) {
-            if (currNode.entries.size() < t - 1) {
+            if (curr.entries.size() < t - 1) {
                 int index = path.get(i).parentIndex;
                 BTreeNode parent = path.get(i - 1).node;
                 Iterator<BTreeEntry> iterator = parent.entries.iterator();
                 BTreeEntry separator = iterator.next();
-                for (int j = 0; j < index; j++) {
-                    separator = iterator.next();
-                }
                 if (index != 0) {
-                    BTreeNode leftBro = parent.nodes.get(index - 1);
+                    for (int j = 1; j < index; j++) {
+                        separator = iterator.next();
+                    }
+                    BTreeNode leftBro = new BTreeNode(parent.nodes.get(index - 1));
                     if (leftBro.entries.size() > t - 1) {
                         parent.entries.remove(separator);
                         BTreeEntry l = leftBro.entries.last();
                         leftBro.entries.remove(l);
                         parent.entries.add(l);
-                        currNode.entries.add(separator);
+                        curr.entries.add(separator);
+                        parent.nodes.set(index - 1, leftBro);
                         return new PersistentBTree<>(t, size - 1, newHead, keyComparator);
                     }
-                }
-
-                if (index + 1 != parent.nodes.size()) {
-                    BTreeNode rightBro = parent.nodes.get(index + 1);
+                    leftBro.entries.add(separator);
+                    parent.entries.remove(separator);
+                    leftBro.entries.addAll(curr.entries);
+                    leftBro.nodes.addAll(curr.nodes);
+                    parent.nodes.remove(index);
+                    parent.nodes.set(index - 1, leftBro);
+                } else {
+                    BTreeNode rightBro = new BTreeNode(parent.nodes.get(index + 1));
                     if (rightBro.entries.size() > t - 1) {
                         parent.entries.remove(separator);
                         BTreeEntry f = rightBro.entries.first();
                         rightBro.entries.remove(f);
                         parent.entries.add(f);
-                        currNode.entries.add(separator);
+                        curr.entries.add(separator);
+                        parent.nodes.set(index + 1, rightBro);
                         return new PersistentBTree<>(t, size - 1, newHead, keyComparator);
                     }
-                    currNode.entries.add(separator);
+                    curr.entries.add(separator);
                     parent.entries.remove(separator);
-                    currNode.entries.addAll(rightBro.entries);
-                    currNode.nodes.addAll(rightBro.nodes);
+                    curr.entries.addAll(rightBro.entries);
+                    curr.nodes.addAll(rightBro.nodes);
                     parent.nodes.remove(index + 1);
                 }
 
-                if (index != 0 && index + 1 == parent.nodes.size()) {
-                    BTreeNode leftBro = parent.nodes.get(index - 1);
-                    leftBro.entries.add(separator);
-                    parent.entries.remove(separator);
-                    leftBro.entries.addAll(currNode.entries);
-                    leftBro.nodes.addAll(currNode.nodes);
-                    parent.nodes.remove(index);
-                }
-
-                currNode = parent;
+                curr = parent;
             } else {
                 break;
             }
@@ -256,6 +242,16 @@ public class PersistentBTree<K, V> implements PersistentTree<K, V> {
                 : keyComparator.compare((K) k1, (K) k2);
     }
 
+    private BTreeNode getNextTreeNodeAndAddToPath(BTreeNode prev, List<PathEntry> path, BTreeNode.GetResult result) {
+        if (result.node == null) {
+            return null;
+        }
+        BTreeNode newCurr = new BTreeNode(result.node);
+        prev.nodes.set(result.entryIndex, newCurr);
+        path.add(new PathEntry(newCurr, result.entryIndex));
+        return newCurr;
+    }
+
     private class PathEntry {
         BTreeNode node;
         int parentIndex;
@@ -276,8 +272,8 @@ public class PersistentBTree<K, V> implements PersistentTree<K, V> {
         }
 
         public BTreeNode(BTreeNode node) {
-            this.entries = node.entries;
-            this.nodes = node.nodes;
+            this.entries = new TreeSet<>(node.entries);
+            this.nodes = new ArrayList<>(node.nodes);
         }
 
         public boolean isLeaf() {
@@ -352,6 +348,14 @@ public class PersistentBTree<K, V> implements PersistentTree<K, V> {
         @Override
         public int hashCode() {
             return Objects.hash(key, value);
+        }
+
+        @Override
+        public String toString() {
+            return "BTreeEntry{" +
+                    "key=" + key +
+                    ", value=" + value +
+                    '}';
         }
     }
 }
