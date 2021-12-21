@@ -103,7 +103,6 @@ public class PersistentBTree<K, V> implements PersistentTree<K, V> {
         return new PersistentBTree<>(t, size + 1, newHead, keyComparator);
     }
 
-    // todo
     @Override
     public PersistentTree<K, V> remove(K key) {
         if (head == null) {
@@ -151,11 +150,12 @@ public class PersistentBTree<K, V> implements PersistentTree<K, V> {
                 BTreeNode parent = path.get(i - 1).node;
                 Iterator<BTreeEntry> iterator = parent.entries.iterator();
                 BTreeEntry separator = iterator.next();
+                BTreeNode leftBro = null;
                 if (index != 0) {
                     for (int j = 1; j < index; j++) {
                         separator = iterator.next();
                     }
-                    BTreeNode leftBro = new BTreeNode(parent.nodes.get(index - 1));
+                    leftBro = new BTreeNode(parent.nodes.get(index - 1));
                     if (leftBro.entries.size() > t - 1) {
                         parent.entries.remove(separator);
                         BTreeEntry l = leftBro.entries.last();
@@ -165,28 +165,37 @@ public class PersistentBTree<K, V> implements PersistentTree<K, V> {
                         parent.nodes.set(index - 1, leftBro);
                         return new PersistentBTree<>(t, size - 1, newHead, keyComparator);
                     }
+                }
+
+                if (index + 1 != parent.nodes.size()) {
+                    BTreeEntry rightSeparator = index != 0 ? iterator.next() : separator;
+                    BTreeNode rightBro = new BTreeNode(parent.nodes.get(index + 1));
+                    if (rightBro.entries.size() > t - 1) {
+                        parent.entries.remove(rightSeparator);
+                        BTreeEntry f = rightBro.entries.first();
+                        rightBro.entries.remove(f);
+                        parent.entries.add(f);
+                        curr.entries.add(rightSeparator);
+                        parent.nodes.set(index + 1, rightBro);
+                        return new PersistentBTree<>(t, size - 1, newHead, keyComparator);
+                    }
+                    curr.entries.add(rightSeparator);
+                    parent.entries.remove(rightSeparator);
+                    curr.entries.addAll(rightBro.entries);
+                    curr.nodes.addAll(rightBro.nodes);
+                    parent.nodes.remove(index + 1);
+
+                    curr = parent;
+                    continue;
+                }
+
+                if (index != 0) {
                     leftBro.entries.add(separator);
                     parent.entries.remove(separator);
                     leftBro.entries.addAll(curr.entries);
                     leftBro.nodes.addAll(curr.nodes);
                     parent.nodes.remove(index);
                     parent.nodes.set(index - 1, leftBro);
-                } else {
-                    BTreeNode rightBro = new BTreeNode(parent.nodes.get(index + 1));
-                    if (rightBro.entries.size() > t - 1) {
-                        parent.entries.remove(separator);
-                        BTreeEntry f = rightBro.entries.first();
-                        rightBro.entries.remove(f);
-                        parent.entries.add(f);
-                        curr.entries.add(separator);
-                        parent.nodes.set(index + 1, rightBro);
-                        return new PersistentBTree<>(t, size - 1, newHead, keyComparator);
-                    }
-                    curr.entries.add(separator);
-                    parent.entries.remove(separator);
-                    curr.entries.addAll(rightBro.entries);
-                    curr.nodes.addAll(rightBro.nodes);
-                    parent.nodes.remove(index + 1);
                 }
 
                 curr = parent;

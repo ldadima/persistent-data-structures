@@ -10,14 +10,15 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class PersistentTreeTest {
 
-    private final int max = 20;
+    private final int t = 5;
+    private final int max = t * 4 - 1;
 
     private PersistentTree<Integer, String> persistentTree;
     private Map<Integer, String> expectedMap;
 
     @BeforeEach
     void setup() {
-        persistentTree = new PersistentBTree<>();
+        persistentTree = new PersistentBTree<>(t);
         expectedMap = new HashMap<>();
         for (int i = 0; i < max; i++) {
             expectedMap.put(i, String.valueOf(i));
@@ -83,6 +84,25 @@ class PersistentTreeTest {
             currTree = persistentTree;
             expectedMap.put(updateKey, String.valueOf(updateKey));
         }
+    }
+
+    @Test
+    void testComplexCase() {
+        PersistentTree<Integer, String> currTree = persistentTree;
+        currTree = currTree.put(t * 4, String.valueOf(t * 4));
+        persistentTree = currTree;
+        currTree = currTree.remove(t * 2);
+        expectedMap.put(t * 4, String.valueOf(t * 4));
+        expectedMap.put(t * 2, null);
+        verifyTree(expectedMap, currTree);
+        currTree = persistentTree;
+        expectedMap.put(t * 2, String.valueOf(t * 2));
+        currTree = currTree.remove(t * 3 - 1);
+        currTree = currTree.put(t * 3 - 1, "new");
+        currTree = currTree.remove(t * 4);
+        expectedMap.put(t * 3 - 1, "new");
+        expectedMap.put(t * 4, null);
+        verifyTree(expectedMap, currTree);
     }
 
     private void verifyTree(Map<Integer, String> expected, PersistentTree<Integer, String> tree) {
