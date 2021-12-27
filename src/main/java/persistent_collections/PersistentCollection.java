@@ -4,13 +4,15 @@ import base_structure.PersistentTree;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.Iterator;
 import java.util.LinkedList;
+import java.util.Map;
 
 public abstract class PersistentCollection<K, V> {
 
-    private final Deque<PersistentTree<K, V>> versions;
+    protected final Deque<PersistentTree<K, V>> versions;
 
-    private final Deque<PersistentTree<K, V>> canceledVersions;
+    protected final Deque<PersistentTree<K, V>> canceledVersions;
 
     PersistentCollection() {
         this.versions = new LinkedList<>();

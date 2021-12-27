@@ -113,6 +113,16 @@ class PersistentTreeTest {
         assertFalse(persistentTree.containsValue(String.valueOf(max)));
     }
 
+    @Test
+    void testIterator() {
+        int i = 0;
+        for (Map.Entry<Integer, String> e : persistentTree) {
+            i++;
+            assertEquals(expectedMap.get(e.getKey()), e.getValue());
+        }
+        assertEquals(expectedMap.size(), i);
+    }
+
     private void verifyTree(Map<Integer, String> expected, PersistentTree<Integer, String> tree) {
         for (Map.Entry<Integer, String> e : expected.entrySet()) {
             assertEquals(e.getValue(), tree.get(e.getKey()));

@@ -1,6 +1,9 @@
 package base_structure;
 
-public interface PersistentTree<K, V> {
+import java.util.Iterator;
+import java.util.Map;
+
+public interface PersistentTree<K, V> extends Iterable<Map.Entry<K, V>>{
 
     PersistentTree<K, V> put(K key, V value);
 
@@ -15,4 +18,6 @@ public interface PersistentTree<K, V> {
     boolean containsKey(K key);
 
     boolean containsValue(V value);
+
+    Iterator<Map.Entry<K, V>> iterator();
 }

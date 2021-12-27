@@ -2,8 +2,11 @@ package base_structure;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.Deque;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.SortedSet;
 import java.util.TreeSet;
@@ -239,7 +242,6 @@ public class PersistentBTree<K, V> implements PersistentTree<K, V> {
         return get(key) == null;
     }
 
-    // todo
     @Override
     public boolean containsValue(V value) {
         if (head == null) {
@@ -247,6 +249,72 @@ public class PersistentBTree<K, V> implements PersistentTree<K, V> {
         }
         return checkValueForTreeNode(value, head);
     }
+
+    @Override
+    public Iterator<Map.Entry<K, V>> iterator() {
+        return new Iterator<>() {
+            private final Deque<PathEntry> nodes = new LinkedList<>();
+            private BTreeEntry next;
+            {
+                if (head == null) {
+                    next = null;
+                }
+                else {
+                    BTreeNode curr = head;
+                    while (!curr.isLeaf()) {
+                        nodes.add(new PathEntry(curr, 0));
+                        curr = curr.nodes.get(0);
+                    }
+                    nodes.add(new PathEntry(curr, 1));
+                    next = curr.entries.first();
+                }
+            }
+
+            @Override
+            public boolean hasNext() {
+                return next != null;
+            }
+
+            @Override
+            public Map.Entry<K, V> next() {
+                Map.Entry<K, V> tmp = next == null ? null : Map.entry(next.key, next.value);
+
+                PathEntry pathEntry = nodes.peekLast();
+                if (pathEntry == null) {
+                    next = null;
+                    return tmp;
+                }
+                while (!nodes.isEmpty()) {
+                    int newIndex = pathEntry.parentIndex;
+
+                    if (pathEntry.node.entries.size() > newIndex) {
+                        int i = 0;
+                        for (BTreeEntry e : pathEntry.node.entries) {
+                            if (i == newIndex) {
+                                next = e;
+                                break;
+                            }
+                            i++;
+                        }
+                        nodes.remove(pathEntry);
+                        nodes.add(new PathEntry(pathEntry.node, newIndex + 1));
+                        if (!pathEntry.node.isLeaf()) {
+                            nodes.add(new PathEntry(pathEntry.node.nodes.get(newIndex + 1), 0));
+                        }
+                        break;
+                    } else {
+                        nodes.remove(pathEntry);
+                        pathEntry = nodes.peekLast();
+                    }
+                }
+                if (nodes.isEmpty()) {
+                    next = null;
+                }
+                return tmp;
+            }
+        };
+    }
+
 
     private boolean checkValueForTreeNode(V value, BTreeNode currHead) {
         if (currHead.entries.stream().map(e -> e.value).anyMatch(v -> v.equals(value))) {
