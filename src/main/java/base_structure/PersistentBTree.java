@@ -242,7 +242,17 @@ public class PersistentBTree<K, V> implements PersistentTree<K, V> {
     // todo
     @Override
     public boolean containsValue(V value) {
-        return false;
+        if (head == null) {
+            return false;
+        }
+        return checkValueForTreeNode(value, head);
+    }
+
+    private boolean checkValueForTreeNode(V value, BTreeNode currHead) {
+        if (currHead.entries.stream().map(e -> e.value).anyMatch(v -> v.equals(value))) {
+            return true;
+        }
+        return currHead.nodes.stream().anyMatch(n -> checkValueForTreeNode(value, n));
     }
 
     @SuppressWarnings("unchecked")
@@ -333,11 +343,6 @@ public class PersistentBTree<K, V> implements PersistentTree<K, V> {
         public BTreeEntry(K key, V value) {
             this.key = key;
             this.value = value;
-        }
-
-        public BTreeEntry(BTreeEntry entry) {
-            this.key = entry.key;
-            this.value = entry.value;
         }
 
         @Override

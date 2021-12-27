@@ -105,6 +105,14 @@ class PersistentTreeTest {
         verifyTree(expectedMap, currTree);
     }
 
+    @Test
+    void testContainsValue() {
+        for (int containsKeyValue = 0; containsKeyValue < max; containsKeyValue++) {
+            assertTrue(persistentTree.containsValue(expectedMap.get(containsKeyValue)));
+        }
+        assertFalse(persistentTree.containsValue(String.valueOf(max)));
+    }
+
     private void verifyTree(Map<Integer, String> expected, PersistentTree<Integer, String> tree) {
         for (Map.Entry<Integer, String> e : expected.entrySet()) {
             assertEquals(e.getValue(), tree.get(e.getKey()));
