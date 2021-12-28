@@ -1,47 +1,58 @@
 package persistent_collections;
 
-import java.util.Collection;
-import java.util.Map;
-import java.util.Set;
+import base_structure.PersistentBTree;
+import base_structure.PersistentTree;
+
+import java.util.*;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
 //todo
-public class PersistentMap<K, V> extends PersistentCollection<K, V> {
+public class PersistentMap<K, V> extends PersistentCollection<K, V> implements Iterable<Map.Entry<K, V>> {
 
     public int size() {
-        return versions.getLast().size();
+        return versions.getFirst().size();
     }
 
     public boolean isEmpty() {
-        return versions.getLast().isEmpty();
+        return versions.getFirst().isEmpty();
     }
 
     public boolean containsKey(K key) {
-        return versions.getLast().containsKey(key);
+        return versions.getFirst().containsKey(key);
     }
 
     public boolean containsValue(V value) {
-        return versions.getLast().containsValue(value);
+        return versions.getFirst().containsValue(value);
     }
 
     public V get(K key) {
-        return versions.getLast().get(key);
+        return versions.getFirst().get(key);
     }
 
-    public void put(K key, V value) {
-        versions.push(versions.getLast().put(key, value));
+    public V put(K key, V value) {
+        PersistentTree<K, V> currVersion;
+        if (versions.isEmpty()) {
+            currVersion = new PersistentBTree<>();
+        } else {
+            currVersion = versions.getFirst();
+        }
+        V v = currVersion.get(key);
+        versions.push(currVersion.put(key, value));
+        return v;
     }
 
     public void remove(K key) {
-        versions.push(versions.getLast().remove(key));
+        versions.push(versions.getFirst().remove(key));
     }
 
     public void putAll(PersistentMap<? extends K, ? extends V> m) {
-        // for (Map.Entry<K, V> entry : m) {
-        //
-        // }
+        PersistentTree<K, V> currVersion = versions.getFirst();
+        for (Map.Entry<? extends K, ? extends V> entry : m) {
+            currVersion = currVersion.put(entry.getKey(), entry.getValue());
+        }
+        versions.push(currVersion);
     }
 
     public void clear() {
@@ -49,58 +60,182 @@ public class PersistentMap<K, V> extends PersistentCollection<K, V> {
     }
 
     public Set<K> keySet() {
-        return null;
+        Set<K> set = new HashSet<>();
+        for (Map.Entry<K, V> e : versions.getFirst()) {
+            set.add(e.getKey());
+        }
+        return set;
     }
 
     public Collection<V> values() {
-        return null;
+        Collection<V> list = new ArrayList<>();
+        for (Map.Entry<K, V> e : versions.getFirst()) {
+            list.add(e.getValue());
+        }
+        return list;
     }
 
     public Set<Map.Entry<K, V>> entrySet() {
-        return null;
+        Set<Map.Entry<K, V>> set = new HashSet<>();
+        for (Map.Entry<K, V> e : versions.getFirst()) {
+            set.add(e);
+        }
+        return set;
     }
 
     public V getOrDefault(K key, V defaultValue) {
-        return null;
+        V v;
+        return (((v = get(key)) != null) || containsKey(key))
+                ? v
+                : defaultValue;
     }
 
     public void forEach(BiConsumer<? super K, ? super V> action) {
-
+        Objects.requireNonNull(action);
+        for (Map.Entry<K, V> entry : entrySet()) {
+            K k;
+            V v;
+            try {
+                k = entry.getKey();
+                v = entry.getValue();
+            } catch (IllegalStateException ise) {
+                // this usually means the entry is no longer in the map.
+                throw new ConcurrentModificationException(ise);
+            }
+            action.accept(k, v);
+        }
     }
 
     public void replaceAll(BiFunction<? super K, ? super V, ? extends V> function) {
+        Objects.requireNonNull(function);
+        PersistentTree<K, V> currVersion = versions.getFirst();
+        for (Map.Entry<K, V> entry : entrySet()) {
+            K k;
+            V v;
+            try {
+                k = entry.getKey();
+                v = entry.getValue();
+            } catch (IllegalStateException ise) {
+                // this usually means the entry is no longer in the map.
+                throw new ConcurrentModificationException(ise);
+            }
 
+            // ise thrown from function is not a cme.
+            v = function.apply(k, v);
+
+            try {
+                currVersion = currVersion.put(entry.getKey(), v);
+            } catch (IllegalStateException ise) {
+                // this usually means the entry is no longer in the map.
+                throw new ConcurrentModificationException(ise);
+            }
+        }
+        versions.push(currVersion);
     }
 
     public V putIfAbsent(K key, V value) {
-        return null;
+        V v = get(key);
+        if (v == null) {
+            v = put(key, value);
+        }
+
+        return v;
     }
 
-    public boolean remove(Object key, Object value) {
-        return false;
+    public boolean remove(K key, V value) {
+        V curValue = get(key);
+        if (!Objects.equals(curValue, value) ||
+                (curValue == null && !containsKey(key))) {
+            return false;
+        }
+        remove(key);
+        return true;
     }
 
     public boolean replace(K key, V oldValue, V newValue) {
-        return false;
+        V curValue = get(key);
+        if (!Objects.equals(curValue, oldValue) ||
+                (curValue == null && !containsKey(key))) {
+            return false;
+        }
+        put(key, newValue);
+        return true;
     }
 
     public V replace(K key, V value) {
-        return null;
+        V curValue;
+        if (((curValue = get(key)) != null) || containsKey(key)) {
+            curValue = put(key, value);
+        }
+        return curValue;
     }
 
     public V computeIfAbsent(K key, Function<? super K, ? extends V> mappingFunction) {
-        return null;
+        Objects.requireNonNull(mappingFunction);
+        V v;
+        if ((v = get(key)) == null) {
+            V newValue;
+            if ((newValue = mappingFunction.apply(key)) != null) {
+                put(key, newValue);
+                return newValue;
+            }
+        }
+
+        return v;
     }
 
     public V computeIfPresent(K key, BiFunction<? super K, ? super V, ? extends V> remappingFunction) {
-        return null;
+        Objects.requireNonNull(remappingFunction);
+        V oldValue;
+        if ((oldValue = get(key)) != null) {
+            V newValue = remappingFunction.apply(key, oldValue);
+            if (newValue != null) {
+                put(key, newValue);
+                return newValue;
+            } else {
+                remove(key);
+                return null;
+            }
+        } else {
+            return null;
+        }
     }
 
     public V compute(K key, BiFunction<? super K, ? super V, ? extends V> remappingFunction) {
-        return null;
+        Objects.requireNonNull(remappingFunction);
+        V oldValue = get(key);
+
+        V newValue = remappingFunction.apply(key, oldValue);
+        if (newValue == null) {
+            // delete mapping
+            if (oldValue != null || containsKey(key)) {
+                // something to remove
+                remove(key);
+            }
+
+            return null;
+        } else {
+            // add or replace old mapping
+            put(key, newValue);
+            return newValue;
+        }
     }
 
     public V merge(K key, V value, BiFunction<? super V, ? super V, ? extends V> remappingFunction) {
-        return null;
+        Objects.requireNonNull(remappingFunction);
+        Objects.requireNonNull(value);
+        V oldValue = get(key);
+        V newValue = (oldValue == null) ? value :
+                remappingFunction.apply(oldValue, value);
+        if (newValue == null) {
+            remove(key);
+        } else {
+            put(key, newValue);
+        }
+        return newValue;
+    }
+
+    public Iterator<Map.Entry<K, V>> iterator() {
+        return versions.getFirst().iterator();
     }
 }

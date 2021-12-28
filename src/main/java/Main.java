@@ -1,17 +1,15 @@
 import base_structure.PersistentBTree;
 import base_structure.PersistentTree;
+import persistent_collections.PersistentMap;
 
 public class Main {
     public static void main(String[] args) {
-        PersistentTree<Integer, String> tree = new PersistentBTree<>(2);
-        for (int i = 0; i < 20; i++) {
-            tree = tree.put(i, String.valueOf(i));
-        }
-        System.out.println(tree.get(14));
-        PersistentTree<Integer, String> tree2 = tree.put(14, "new");
-        System.out.println(tree2.get(14));
-        tree2 = tree2.remove(15);
-        System.out.println(tree2.get(15));
-        System.out.println(tree2.get(14));
+        PersistentMap<Integer, PersistentMap<Integer, String>> map = new PersistentMap<>();
+        PersistentMap<Integer, String> subMap = new PersistentMap<>();
+        subMap.put(5, "5");
+        subMap.put(6, "6");
+        System.out.println(subMap.entrySet());
+        map.put(1, subMap);
+        map.entrySet().forEach(e -> System.out.println(e.getKey().toString() + "->" + e.getValue().entrySet()));
     }
 }
