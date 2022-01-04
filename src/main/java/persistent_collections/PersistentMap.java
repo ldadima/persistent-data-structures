@@ -3,7 +3,15 @@ package persistent_collections;
 import base_structure.PersistentBTree;
 import base_structure.PersistentTree;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.ConcurrentModificationException;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -12,23 +20,35 @@ import java.util.function.Function;
 public class PersistentMap<K, V> extends PersistentCollection<K, V> implements Iterable<Map.Entry<K, V>> {
 
     public int size() {
-        return versions.getFirst().size();
+        if (versions.isEmpty()) {
+            return 0;
+        }
+        return versions.getFirst().tree.size();
     }
 
     public boolean isEmpty() {
-        return versions.getFirst().isEmpty();
+        return versions.isEmpty() || versions.getFirst().tree.isEmpty();
     }
 
     public boolean containsKey(K key) {
-        return versions.getFirst().containsKey(key);
+        if (versions.isEmpty()) {
+            return false;
+        }
+        return versions.getFirst().tree.containsKey(key);
     }
 
     public boolean containsValue(V value) {
-        return versions.getFirst().containsValue(value);
+        if (versions.isEmpty()) {
+            return false;
+        }
+        return versions.getFirst().tree.containsValue(value);
     }
 
     public V get(K key) {
-        return versions.getFirst().get(key);
+        if (versions.isEmpty()) {
+            return null;
+        }
+        return versions.getFirst().tree.get(key);
     }
 
     public V put(K key, V value) {
@@ -36,32 +56,55 @@ public class PersistentMap<K, V> extends PersistentCollection<K, V> implements I
         if (versions.isEmpty()) {
             currVersion = new PersistentBTree<>();
         } else {
-            currVersion = versions.getFirst();
+            currVersion = versions.getFirst().tree;
         }
         V v = currVersion.get(key);
-        versions.push(currVersion.put(key, value));
+        addNewVersion(currVersion.put(key, value));
+        addVersionForParent();
+        if (value instanceof PersistentCollection) {
+            addCollectionValue((PersistentCollection<?, ?>) value);
+        }
         return v;
     }
 
     public void remove(K key) {
-        versions.push(versions.getFirst().remove(key));
+        if (versions.isEmpty()) {
+            return;
+        }
+        addNewVersion(versions.getFirst().tree.remove(key));
+        addVersionForParent();
     }
 
     public void putAll(PersistentMap<? extends K, ? extends V> m) {
-        PersistentTree<K, V> currVersion = versions.getFirst();
+        PersistentTree<K, V> currVersion;
+        if (versions.isEmpty()) {
+            currVersion = new PersistentBTree<>();
+        } else {
+            currVersion = versions.getFirst().tree;
+        }
+        List<PersistentCollection<?, ?>> collectionList = new ArrayList<>();
         for (Map.Entry<? extends K, ? extends V> entry : m) {
             currVersion = currVersion.put(entry.getKey(), entry.getValue());
+            if (entry.getValue() instanceof PersistentCollection) {
+                collectionList.add((PersistentCollection<?, ?>) entry.getValue());
+            }
         }
-        versions.push(currVersion);
-    }
-
-    public void clear() {
-
+        addNewVersion(currVersion);
+        addVersionForParent();
+        for (PersistentCollection<?, ?> v : collectionList) {
+            addCollectionValue(v);
+        }
     }
 
     public Set<K> keySet() {
         Set<K> set = new HashSet<>();
-        for (Map.Entry<K, V> e : versions.getFirst()) {
+        PersistentTree<K, V> currVersion;
+        if (versions.isEmpty()) {
+            currVersion = new PersistentBTree<>();
+        } else {
+            currVersion = versions.getFirst().tree;
+        }
+        for (Map.Entry<K, V> e : currVersion) {
             set.add(e.getKey());
         }
         return set;
@@ -69,7 +112,13 @@ public class PersistentMap<K, V> extends PersistentCollection<K, V> implements I
 
     public Collection<V> values() {
         Collection<V> list = new ArrayList<>();
-        for (Map.Entry<K, V> e : versions.getFirst()) {
+        PersistentTree<K, V> currVersion;
+        if (versions.isEmpty()) {
+            currVersion = new PersistentBTree<>();
+        } else {
+            currVersion = versions.getFirst().tree;
+        }
+        for (Map.Entry<K, V> e : currVersion) {
             list.add(e.getValue());
         }
         return list;
@@ -77,7 +126,13 @@ public class PersistentMap<K, V> extends PersistentCollection<K, V> implements I
 
     public Set<Map.Entry<K, V>> entrySet() {
         Set<Map.Entry<K, V>> set = new HashSet<>();
-        for (Map.Entry<K, V> e : versions.getFirst()) {
+        PersistentTree<K, V> currVersion;
+        if (versions.isEmpty()) {
+            currVersion = new PersistentBTree<>();
+        } else {
+            currVersion = versions.getFirst().tree;
+        }
+        for (Map.Entry<K, V> e : currVersion) {
             set.add(e);
         }
         return set;
@@ -108,7 +163,12 @@ public class PersistentMap<K, V> extends PersistentCollection<K, V> implements I
 
     public void replaceAll(BiFunction<? super K, ? super V, ? extends V> function) {
         Objects.requireNonNull(function);
-        PersistentTree<K, V> currVersion = versions.getFirst();
+        PersistentTree<K, V> currVersion;
+        if (versions.isEmpty()) {
+            currVersion = new PersistentBTree<>();
+        } else {
+            currVersion = versions.getFirst().tree;
+        }
         for (Map.Entry<K, V> entry : entrySet()) {
             K k;
             V v;
@@ -130,7 +190,8 @@ public class PersistentMap<K, V> extends PersistentCollection<K, V> implements I
                 throw new ConcurrentModificationException(ise);
             }
         }
-        versions.push(currVersion);
+        addNewVersion(currVersion);
+        addVersionForParent();
     }
 
     public V putIfAbsent(K key, V value) {
@@ -236,6 +297,6 @@ public class PersistentMap<K, V> extends PersistentCollection<K, V> implements I
     }
 
     public Iterator<Map.Entry<K, V>> iterator() {
-        return versions.getFirst().iterator();
+        return versions.getFirst().tree.iterator();
     }
 }

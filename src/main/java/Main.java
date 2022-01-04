@@ -1,5 +1,3 @@
-import base_structure.PersistentBTree;
-import base_structure.PersistentTree;
 import persistent_collections.PersistentMap;
 
 public class Main {
@@ -10,6 +8,8 @@ public class Main {
         subMap.put(6, "6");
         System.out.println(subMap.entrySet());
         map.put(1, subMap);
+        map.entrySet().forEach(e -> System.out.println(e.getKey().toString() + "->" + e.getValue().entrySet()));
+        map.undo();
         map.entrySet().forEach(e -> System.out.println(e.getKey().toString() + "->" + e.getValue().entrySet()));
     }
 }
