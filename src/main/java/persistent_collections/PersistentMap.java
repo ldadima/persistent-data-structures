@@ -19,17 +19,6 @@ import java.util.function.Function;
 //todo
 public class PersistentMap<K, V> extends PersistentCollection<K, V> implements Iterable<Map.Entry<K, V>> {
 
-    public int size() {
-        if (versions.isEmpty()) {
-            return 0;
-        }
-        return versions.getFirst().tree.size();
-    }
-
-    public boolean isEmpty() {
-        return versions.isEmpty() || versions.getFirst().tree.isEmpty();
-    }
-
     public boolean containsKey(K key) {
         if (versions.isEmpty()) {
             return false;
@@ -297,6 +286,12 @@ public class PersistentMap<K, V> extends PersistentCollection<K, V> implements I
     }
 
     public Iterator<Map.Entry<K, V>> iterator() {
-        return versions.getFirst().tree.iterator();
+        PersistentTree<K, V> currVersion;
+        if (versions.isEmpty()) {
+            currVersion = new PersistentBTree<>();
+        } else {
+            currVersion = versions.getFirst().tree;
+        }
+        return currVersion.iterator();
     }
 }

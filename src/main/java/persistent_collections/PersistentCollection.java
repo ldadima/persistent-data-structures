@@ -19,6 +19,17 @@ public abstract class PersistentCollection<K, V> {
         this.canceledVersions = new LinkedList<>();
     }
 
+    public int size() {
+        if (versions.isEmpty()) {
+            return 0;
+        }
+        return versions.getFirst().tree.size();
+    }
+
+    public boolean isEmpty() {
+        return versions.isEmpty() || versions.getFirst().tree.isEmpty();
+    }
+
     public boolean undo() {
         Version last = versions.pollFirst();
         if (last == null) {
