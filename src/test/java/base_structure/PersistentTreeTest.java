@@ -123,6 +123,16 @@ class PersistentTreeTest {
         assertEquals(expectedMap.size(), i);
     }
 
+    @Test
+    void testEquals() {
+        PersistentTree<Integer, String> other = new PersistentBTree<>();
+        for (Map.Entry<Integer, String> e : expectedMap.entrySet()) {
+            other = other.put(e.getKey(), e.getValue());
+        }
+        assertEquals(other, persistentTree);
+        assertEquals(other.hashCode(), persistentTree.hashCode());
+    }
+
     private void verifyTree(Map<Integer, String> expected, PersistentTree<Integer, String> tree) {
         for (Map.Entry<Integer, String> e : expected.entrySet()) {
             assertEquals(e.getValue(), tree.get(e.getKey()));

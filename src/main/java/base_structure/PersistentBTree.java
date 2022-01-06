@@ -3,11 +3,13 @@ package base_structure;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Deque;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
@@ -315,6 +317,38 @@ public class PersistentBTree<K, V> implements PersistentTree<K, V> {
         };
     }
 
+    public Set<Map.Entry<K, V>> entrySet() {
+        Set<Map.Entry<K, V>> set = new HashSet<>();
+        for (Map.Entry<K, V> e : this) {
+            set.add(e);
+        }
+        return set;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof PersistentBTree)) return false;
+        PersistentBTree<?, ?> m = (PersistentBTree<?, ?>) o;
+        if (m.size() != size())
+            return false;
+
+        try {
+            Set<Map.Entry<K, V>> set1 = entrySet();
+            Set<?> set2 = m.entrySet();
+            return set1.containsAll(set2);
+        } catch (ClassCastException unused) {
+            return false;
+        }
+    }
+
+    @Override
+    public int hashCode() {
+        int h = 0;
+        for (Map.Entry<K, V> entry : entrySet())
+            h += entry.hashCode();
+        return h;
+    }
 
     private boolean checkValueForTreeNode(V value, BTreeNode currHead) {
         if (currHead.entries.stream().map(e -> e.value).anyMatch(v -> v.equals(value))) {

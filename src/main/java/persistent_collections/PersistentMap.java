@@ -285,6 +285,36 @@ public class PersistentMap<K, V> extends PersistentCollection<K, V> implements I
         return newValue;
     }
 
+    @Override
+    public int hashCode() {
+        PersistentTree<K, V> currVersion;
+        if (versions.isEmpty()) {
+            currVersion = new PersistentBTree<>();
+        } else {
+            currVersion = versions.getFirst().tree;
+        }
+        return currVersion.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof PersistentMap)) return false;
+
+        try {
+            PersistentMap<?, ?> m = (PersistentMap<?, ?>) o;
+            if (m.size() != size())
+                return false;
+
+            Set<Map.Entry<K, V>> set1 = entrySet();
+            Set<?> set2 = m.entrySet();
+            return set1.containsAll(set2);
+        } catch (ClassCastException unused) {
+            return false;
+        }
+    }
+
+    @Override
     public Iterator<Map.Entry<K, V>> iterator() {
         PersistentTree<K, V> currVersion;
         if (versions.isEmpty()) {
