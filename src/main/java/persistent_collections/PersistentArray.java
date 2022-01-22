@@ -12,7 +12,6 @@ import java.util.Objects;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
-//todo
 public class PersistentArray<V> extends PersistentCollection<Integer, V> implements Iterable<V> {
     private int currIndex = 0;
 
@@ -111,7 +110,7 @@ public class PersistentArray<V> extends PersistentCollection<Integer, V> impleme
 
     public V remove(int index) {
         PersistentTree<Integer, V> currVersion;
-        if (versions.isEmpty()) {
+        if (versions.isEmpty() || index >= currIndex) {
             return null;
         } else {
             currVersion = versions.getFirst().tree;
@@ -121,8 +120,10 @@ public class PersistentArray<V> extends PersistentCollection<Integer, V> impleme
             V v = currVersion.get(i + 1);
             currVersion = currVersion.put(i, v);
         }
+        currVersion = currVersion.remove(currIndex - 1);
         addNewVersion(currVersion);
         currIndex--;
+        addVersionForParent();
         return old;
     }
 
@@ -175,15 +176,15 @@ public class PersistentArray<V> extends PersistentCollection<Integer, V> impleme
         }
         PersistentTree<Integer, V> currVersion;
         if (versions.isEmpty()) {
-            currVersion = new PersistentBTree<>();
+            return false;
         } else {
             currVersion = versions.getFirst().tree;
         }
         int removed = 0;
         for (int i = 0; i < currIndex; i++) {
             V v = currVersion.get(i);
-            if (array.contains(v) == contains) {
-                removed--;
+            if (array.contains(v) != contains) {
+                removed++;
             } else {
                 if (removed > 0) {
                     currVersion = currVersion.put(i - removed, v);
@@ -193,6 +194,8 @@ public class PersistentArray<V> extends PersistentCollection<Integer, V> impleme
         for (int i = currIndex - 1; i > currIndex - removed - 1; i--) {
             currVersion = currVersion.remove(i);
         }
+        addNewVersion(currVersion);
+        currIndex -= removed;
         return true;
     }
 

@@ -41,6 +41,9 @@ public abstract class PersistentCollection<K, V> {
         }
         if (res) {
             canceledVersions.push(last);
+            if (parent != null) {
+                parent.addChildRedoVersion(this);
+            }
             return true;
         }
         return false;
@@ -57,6 +60,9 @@ public abstract class PersistentCollection<K, V> {
         }
         if (res) {
             versions.push(last);
+            if (parent != null) {
+                parent.addChildVersion(this);
+            }
             return true;
         }
         return false;
@@ -96,6 +102,22 @@ public abstract class PersistentCollection<K, V> {
             currVersion = versions.getFirst().tree;
         }
         versions.push(new Version(currVersion, child));
+        if (parent != null) {
+            parent.addChildVersion(this);
+        }
+    }
+
+    private void addChildRedoVersion(PersistentCollection<?, ?> child) {
+        PersistentTree<K, V> currVersion;
+        if (versions.isEmpty()) {
+            currVersion = new PersistentBTree<>();
+        } else {
+            currVersion = versions.getFirst().tree;
+        }
+        canceledVersions.push(new Version(currVersion, child));
+        if (parent != null) {
+            parent.addChildRedoVersion(this);
+        }
     }
 
     protected void setParent(PersistentCollection<?, ?> parent) {

@@ -241,7 +241,7 @@ public class PersistentBTree<K, V> implements PersistentTree<K, V> {
 
     @Override
     public boolean containsKey(K key) {
-        return get(key) == null;
+        return get(key) != null;
     }
 
     @Override

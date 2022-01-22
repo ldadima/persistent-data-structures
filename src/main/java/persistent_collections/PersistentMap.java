@@ -16,7 +16,6 @@ import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
-//todo
 public class PersistentMap<K, V> extends PersistentCollection<K, V> implements Iterable<Map.Entry<K, V>> {
 
     public boolean containsKey(K key) {
